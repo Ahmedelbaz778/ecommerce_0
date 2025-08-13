@@ -1,0 +1,191 @@
+extends /layouts/_informational
+
+block vars
+  -
+    page = {
+      title: 'Contacts',
+      breadcrumbs: {}
+    }
+
+    informationalActivePage = 2
+
+block informational
+  article(class="uk-card uk-card-default uk-card-small uk-card-body uk-article tm-ignore-container")
+
+    div.tm-wrapper(style="position: relative;")
+      // عنصر تحميل فوق الخريطة
+      div#mapLoader.uk-position-cover.uk-flex.uk-flex-center.uk-flex-middle.uk-background-muted.uk-light(
+        style="z-index: 1000;"
+      )
+        span.uk-icon.uk-icon-spinner.uk-icon-spin.uk-icon-large
+
+      figure.tm-ratio.tm-ratio-16-9.js-map(
+        data-latitude="26.8206"
+        data-longitude="30.8025"
+        data-zoom="6"
+        style="height: 400px;")
+
+    div(class="uk-child-width-1-1 uk-child-width-1-2@s uk-margin-top" uk-grid)
+
+      section
+        h3 Store
+        ul.uk-list
+          li
+            a.uk-link-heading(href="#")
+              +icon("receiver")(class="uk-margin-small-right")
+              span.tm-pseudo= shopInfo.phone
+          li
+            a.uk-link-heading(href="#")
+              +icon("mail")(class="uk-margin-small-right")
+              span.tm-pseudo= shopInfo.email
+          li
+            div
+              +icon("location")(class="uk-margin-small-right")
+              span!= shopInfo.address
+          li
+            div
+              +icon("clock")(class="uk-margin-small-right")
+              span= shopInfo.openingHours
+
+      section
+        h3 Feedback
+        dl.uk-description-list
+          dt Cooperation
+          dd: a.uk-link-muted(href="#") cooperation@example.com
+          dt Partners
+          dd: a.uk-link-muted(href="#") partners@example.com
+          dt Press
+          dd: a.uk-link-muted(href="#") press@example.com
+
+      section.uk-width-1-1
+        h2.uk-text-center Contact Us
+        form#contactForm
+          div.uk-grid-small.uk-child-width-1-1(uk-grid)
+            div
+              label
+                div.uk-form-label.uk-form-label-required Name
+                input.uk-input(type="text" name="name" required)
+            div
+              label
+                div.uk-form-label.uk-form-label-required Email
+                input.uk-input(type="email" name="email" required)
+            div
+              label
+                div.uk-form-label Topic
+                select.uk-select(name="topic")
+                  option(value="Customer service") Customer service
+                  option(value="Tech support") Tech support
+                  option(value="Other") Other
+            div
+              label
+                div.uk-form-label Message
+                textarea.uk-textarea(rows="5" name="message")
+            div.uk-text-center
+              button.uk-button.uk-button-primary(type="submit") Send
+
+    // روابط CSS و JS لـ Leaflet
+    link(rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="")
+    script(src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="")
+
+    // سكريبت JS
+    script.
+      document.addEventListener('DOMContentLoaded', () => {
+        // ستايل نبض الأيقونة
+        const style = document.createElement('style');
+        style.textContent = `
+          .pulse-icon {
+            animation: pulse 1.5s infinite;
+            display: inline-block;
+            margin-right: 5px;
+          }
+
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `;
+        document.head.appendChild(style);
+
+        // تهيئة الخريطة
+        const mapElement = document.querySelector('.js-map');
+        if (mapElement) {
+          const lat = parseFloat(mapElement.dataset.latitude);
+          const lng = parseFloat(mapElement.dataset.longitude);
+          const zoom = parseInt(mapElement.dataset.zoom, 10);
+
+          const map = L.map(mapElement).setView([lat, lng], zoom);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+
+          // إخفاء مؤشر التحميل عند جاهزية الخريطة
+          map.whenReady(() => {
+            const loader = document.getElementById('mapLoader');
+            if (loader) loader.style.display = 'none';
+          });
+        }
+
+        // كود إرسال الفورم
+        const form = document.getElementById('contactForm');
+
+        form.addEventListener('submit', async function (e) {
+          e.preventDefault();
+
+          const formData = new FormData(form);
+
+          const contact = {
+            name: formData.get('name'),
+            email: formData.get('email'),
+            topic: formData.get('topic'),
+            message: formData.get('message')
+          };
+
+          try {
+            const response = await fetch('http://localhost:5204/api/contacts', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(contact)
+            });
+
+            if (response.ok) {
+              UIkit.notification({
+                message: `
+                  <div class="uk-animation-slide-top-small uk-text-center">
+                    <span class="pulse-icon">✅</span>
+                    <span class="uk-text-bold uk-text-success">Message Sent Successfully! 🎉</span><br>
+                    <small>Thanks for reaching out! We'll get back to you shortly 💌</small>
+                  </div>
+                `,
+                status: 'success',
+                pos: 'top-center',
+                timeout: 4000
+              });
+
+              // تشغيل صوت إشعار
+              const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1140-pristine.mp3');
+              audio.play();
+
+              form.reset();
+            } else {
+              const error = await response.json();
+              UIkit.notification({
+                message: '❌ Error: ' + (error.message || 'Something went wrong'),
+                status: 'danger',
+                pos: 'top-center',
+                timeout: 3000
+              });
+            }
+          } catch (err) {
+            UIkit.notification({
+              message: '❌ Network error',
+              status: 'danger',
+              pos: 'top-center',
+              timeout: 3000
+            });
+          }
+        });
+      });
